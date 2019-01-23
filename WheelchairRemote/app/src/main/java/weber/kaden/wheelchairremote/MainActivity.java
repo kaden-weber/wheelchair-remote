@@ -30,17 +30,13 @@ import static android.bluetooth.BluetoothAdapter.STATE_CONNECTED;
 public class MainActivity extends AppCompatActivity {
     final int REQUEST_ENABLE_BT = 0;
     static final long SCAN_PERIOD = 1500;
-
+    static final int JOYSTICK_DELAY = 800; //1000 is once per second, default is 50.
     //Device info
     //Device name: SH-HC-08
     final String BLE_DEVICE_ADDRESS = "4C:3F:D3:02:DE:14";
-
     final UUID SERVICE =  UUID.fromString("0000ffe0-0000-1000-8000-00805f9b34fb");
-
     final UUID CHARACTERISTIC = convertFromInteger(0xFFE1);
-
     final UUID DESCRIPTOR = convertFromInteger(0x2901);
-
 
     private BluetoothAdapter mBluetoothAdapter;
     private BluetoothAdapter.LeScanCallback mScanCallback;
@@ -49,16 +45,12 @@ public class MainActivity extends AppCompatActivity {
     private BluetoothGatt gatt;
     private BluetoothGattCharacteristic mGattCharacteristic;
     private BluetoothGattDescriptor mGattDescriptor;
-
     private boolean mScanning;
     private Handler mHandler;
 
     private Button mScanButton;
     private TextView mDeviceConnectedText;
-    private Button mServerTestButton;
 
-
-    private SeekBar mSeekBar;
     private int seekBarMultiplier;
 
     @Override
@@ -81,8 +73,8 @@ public class MainActivity extends AppCompatActivity {
         mDeviceConnectedText = findViewById(R.id.connectedTextView);
 
         //setup server test button
-        mServerTestButton = findViewById(R.id.serverTestButton);
-        mServerTestButton.setOnClickListener(new View.OnClickListener() {
+        Button serverTestButton = findViewById(R.id.serverTestButton);
+        serverTestButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 Intent intent = new Intent(getApplicationContext(), sendRFIDIntentService.class);
@@ -107,7 +99,7 @@ public class MainActivity extends AppCompatActivity {
 
                 sendArray(newContents);
             }
-        });
+        }, JOYSTICK_DELAY);
 
         //rotation buttons
         Button rotateLeftButton = findViewById(R.id.leftTurnButton);
@@ -126,92 +118,60 @@ public class MainActivity extends AppCompatActivity {
         });
 
         //setup seekbar
-        mSeekBar = findViewById(R.id.seekBar);
-        seekBarMultiplier = mSeekBar.getProgress() + 1;
+        SeekBar seekBar = findViewById(R.id.seekBar);
+        seekBarMultiplier = seekBar.getProgress() + 1;
         System.out.println("seekbar: " + String.valueOf(seekBarMultiplier));
-        mSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+        seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
                 seekBarMultiplier = i + 1;
                 System.out.println("seekbar: " + String.valueOf(seekBarMultiplier));
             }
-
             @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {
-
-            }
-
+            public void onStartTrackingTouch(SeekBar seekBar) { }
             @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {
-
-            }
+            public void onStopTrackingTouch(SeekBar seekBar) { }
         });
     }
 
-    private int lastAngle = 0;
-    private final int MAX_ANGLE_DELTA = 10;
-    private int capAngleDelta(int angle){
-        int newAngle = makeSafeDelta(angle, lastAngle, MAX_ANGLE_DELTA);
-        lastAngle = newAngle;
-        return newAngle;
-    }
-    private int lastStrength = 0;
-    private final int MAX_STRENGTH_DELTA = 3;
-    private int capStrengthDelta(int strength){
-        int newStrength = makeSafeDelta(strength, lastStrength, MAX_STRENGTH_DELTA);
-        lastStrength = newStrength;
-        return newStrength;
-    }
-
-    private int makeSafeDelta(int current, int previous, int maxDelta){
-        int newCoord;
-        if(Math.abs(previous - current) >= maxDelta){
-            if(current > previous){
-                newCoord = previous + maxDelta;
-            } else {
-                newCoord = previous - maxDelta;
-            }
-        } else {
-            newCoord = current;
-        }
-        return newCoord;
-    }
-
-    //old byte array, keep for reference
-//    private int lastX = 0;
-//    private int lastY = 0;
-//    private final int MAX_COORD_CHANGE = 3;
-//    // new byte array, length 6 with each pair corresponding to strength from 0 to 255 and
-//    // direction 0 for clockwise and 1 for counterclockwise.
-//    private byte[] makeByteArray(int angle, int strength) {
-//        //convert polar angle and strength to cartesian xy coordinates.
-//        double exactX = Math.cos(Math.toRadians(angle)) * strength;
-//        int x = (int)Math.round(exactX);
-//        double exactY = Math.sin(Math.toRadians(angle)) * strength;
-//        int y = (int)Math.round(exactY);
+    //not needed with the slow servos acceleration.
+//    private int lastAngle = 0;
+//    private final int MAX_ANGLE_DELTA = 10;
+//    private int capAngleDelta(int angle){
+//        int newAngle = makeSafeDelta(angle, lastAngle, MAX_ANGLE_DELTA);
+//        lastAngle = newAngle;
+//        return newAngle;
+//    }
+//    private int lastStrength = 0;
+//    private final int MAX_STRENGTH_DELTA = 3;
+//    private int capStrengthDelta(int strength){
+//        int newStrength = makeSafeDelta(strength, lastStrength, MAX_STRENGTH_DELTA);
+//        lastStrength = newStrength;
+//        return newStrength;
+//    }
 //
-//        //slow any large changes in joystick position
-//        x = makeSafeDelta(x, lastX, MAX_COORD_CHANGE);
-//        lastX = x;
-//        y = makeSafeDelta(y, lastY, MAX_COORD_CHANGE);
-//        lastY = y;
-//        //make compatible with EE convention
-//        int offsetX = x + 100;
-//        int offsetY = y + 100;
-//        System.out.println("x: " + offsetX + " y: " + offsetY);
-//        byte[] array = new byte[2];
-//        array[0] = (byte)offsetX;
-//        array[1] = (byte)offsetY;
-//        return array;
+//    private int makeSafeDelta(int current, int previous, int maxDelta){
+//        int newCoord;
+//        if(Math.abs(previous - current) >= maxDelta){
+//            if(current > previous){
+//                newCoord = previous + maxDelta;
+//            } else {
+//                newCoord = previous - maxDelta;
+//            }
+//        } else {
+//            newCoord = current;
+//        }
+//        return newCoord;
 //    }
 
+
     private void sendRotationArray(boolean clockwise){
-        //how to ramp up the acceleration?
+        //how to ramp up the acceleration? looks like the servos have a slow enough ramp.
         byte[] array;
         if (clockwise) {
-            array = new byte[] {100, 2, 100, 2, 100, 2} ;
+            array = new byte[] {100, 100, 100} ;
         } else {
-            array = new byte[] {100, 1, 100, 1, 100, 1} ;
+            array = new byte[] {-100, -100, -100} ;
         }
         sendArray(array);
     }
@@ -226,7 +186,7 @@ public class MainActivity extends AppCompatActivity {
     private final double WHEEL_1_ANGLE = Math.toRadians(150);
     private final double WHEEL_2_ANGLE = Math.toRadians(30);
     private final double WHEEL_3_ANGLE = Math.toRadians(270);
-    private final double CONVERSION_RATE = 2.55;
+    private final double CONVERSION_RATE = 1.27;
     private byte[] makeOmniByteArray(int angle, int strength){
         // use the polar coordinates
         double polarAngle = Math.toRadians(angle);
@@ -235,36 +195,12 @@ public class MainActivity extends AppCompatActivity {
         int wheel2Strength = (int)(strength * Math.sin(WHEEL_2_ANGLE - polarAngle) * CONVERSION_RATE);
         int wheel3Strength = (int)(strength * Math.sin(WHEEL_3_ANGLE - polarAngle) * CONVERSION_RATE);
 
-        byte[] array = new byte[6];
+        byte[] array = new byte[] {(byte)wheel1Strength, (byte)wheel2Strength, (byte)wheel3Strength};
 
-        // lots of duplicate code here but a function is too complicated to be worthwhile
-        if (wheel1Strength < 0){
-            array[0] = (byte)(Math.abs(wheel1Strength));
-            array[1] = 1;
-        } else {
-            array[0] = (byte) wheel1Strength;
-            array[1] = 2;
-        }
-        //wheel 2
-        if (wheel2Strength < 0){
-            array[2] = (byte)(Math.abs(wheel2Strength));
-            array[3] = 1;
-        } else {
-            array[2] = (byte) wheel2Strength;
-            array[3] = 2;
-        }
-        //wheel 3
-        if (wheel3Strength < 0){
-            array[4] = (byte)(Math.abs(wheel3Strength));
-            array[5] = 1;
-        } else {
-            array[4] = (byte) wheel3Strength;
-            array[5] = 2;
-        }
+        System.out.println("Wheel 1: " + (array[0]) +
+                " Wheel 2: " + (array[1]) +
+                " Wheel 3: " + (array[2]) );
 
-        System.out.println("Wheel 1: " + (array[0]) + " " + array[1] +
-                " Wheel 2: " + (array[2]) + " " + array[3] +
-                " Wheel 3: " + (array[4]) + " " + array[5]);
         return array;
     }
     // omni info
@@ -272,8 +208,7 @@ public class MainActivity extends AppCompatActivity {
     //    -
     //    3
     //Degrees: 1: 150, 2: 30, 3: 270
-    // direction: clockwise is positive, send a 0, counterclockwise send a 1
-
+    // direction: clockwise is positive, CCW is negative
 
 //Bluetooth functions
     private void initBluetooth(){
@@ -319,7 +254,6 @@ public class MainActivity extends AppCompatActivity {
                 mGattDescriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
                 gatt.writeDescriptor(mGattDescriptor);
             }
-
             @Override
             public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
                 super.onConnectionStateChange(gatt, status, newState);
@@ -335,15 +269,11 @@ public class MainActivity extends AppCompatActivity {
                 String RFID = characteristic.getStringValue(0);
                 // send RFID to server
                 System.out.println("characteristic change: " + RFID);
-                //test
-                System.out.println(characteristic.getValue());
                 Intent intent = new Intent(getApplicationContext(), sendRFIDIntentService.class);
                 intent.putExtra(sendRFIDIntentService.URL_EXTRA,
                         "http://52.200.212.149:8080/" + "4/" + RFID );
                 startService(intent);
-
             }
-
         };
     }
     private void scanLeDevice(final boolean enable) {
@@ -363,7 +293,6 @@ public class MainActivity extends AppCompatActivity {
             mBluetoothAdapter.stopLeScan(mScanCallback);
         }
     }
-
     private void connect(){
         gatt = mConnectedDevice.connectGatt(this, true, mGattCallback);
         if (gatt != null){
@@ -375,25 +304,11 @@ public class MainActivity extends AppCompatActivity {
             setDeviceConnectedText(false);
         }
     }
-
     private void setDeviceConnectedText(boolean connected){
         if (connected){
             mDeviceConnectedText.setText(R.string.connected_label);
         } else {
             mDeviceConnectedText.setText(R.string.not_connected_label);
-        }
-    }
-
-    private String checkGattDescriptor(BluetoothGattDescriptor descriptor){
-        if (descriptor == null){
-            return "null";
-        }
-        byte[] contents = descriptor.getValue();
-        if (contents.length < 1){
-            return "empty";
-        } else {
-            int strength = contents[0]; // ?
-            return String.valueOf(strength);
         }
     }
 
